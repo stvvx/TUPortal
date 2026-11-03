@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -617,16 +616,9 @@ function LessonViewer({ lesson, onClose }) {
   const isPdf = fileName.toLowerCase().endsWith('.pdf');
   const isPptx = fileName.toLowerCase().endsWith('.pptx');
   const slides = lesson?.slides || [];
-
-  const openLessonFile = async () => {
-    if (!lessonFileUrl) return;
-    try {
-      await Linking.openURL(lessonFileUrl);
-    } catch (error) {
-      console.warn('Unable to open lesson file:', error);
-      setViewerError('This lesson file could not be opened.');
-    }
-  };
+  const officeViewerUrl = isPptx && lessonFileUrl
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(lessonFileUrl)}`
+    : '';
 
   // Start from slide 1 whenever a different lesson is opened
   useEffect(() => {
@@ -722,7 +714,35 @@ function LessonViewer({ lesson, onClose }) {
       );
     }
 
-    // PPTX files are kept in their original format instead of being converted.
+    if (officeViewerUrl) {
+      if (isWeb) {
+        return (
+          <iframe
+            title={lesson.title}
+            src={officeViewerUrl}
+            style={{ width: '100%', height: '100%', border: 'none', backgroundColor: '#2B2325' }}
+          />
+        );
+      }
+
+      return (
+        <WebView
+          source={{ uri: officeViewerUrl }}
+          style={styles.nativePdfViewer}
+          originWhitelist={['*']}
+          javaScriptEnabled
+          domStorageEnabled
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.fsCenter}>
+              <ActivityIndicator size="large" color={COLORS.gold} />
+              <Text style={styles.fsCenterTextLight}>Loading PowerPoint...</Text>
+            </View>
+          )}
+        />
+      );
+    }
+
     return (
       <View style={styles.fsCenter}>
         <View style={styles.fsFileCard}>
@@ -738,21 +758,9 @@ function LessonViewer({ lesson, onClose }) {
             {viewerError
               ? viewerError
               : isPptx
-                ? 'PowerPoint files stay in their original format. Open the file to view or download it.'
+                ? 'This PowerPoint file could not be displayed inside the app.'
                 : 'This PDF could not be previewed here.'}
           </Text>
-          {lessonFileUrl ? (
-            <TouchableOpacity
-              style={styles.openLessonButton}
-              onPress={openLessonFile}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${fileName || lesson.title}`}
-            >
-              <Ionicons name="open-outline" size={16} color={COLORS.brand} />
-              <Text style={styles.openLessonButtonText}>{isPptx ? 'Open PowerPoint file' : 'Open PDF'}</Text>
-            </TouchableOpacity>
-          ) : null}
         </View>
       </View>
     );
