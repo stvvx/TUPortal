@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -614,7 +615,18 @@ function LessonViewer({ lesson, onClose }) {
     ? (/^https?:\/\//i.test(fileUrl) ? fileUrl : `${API_BASE_URL}${fileUrl}`)
     : '';
   const isPdf = fileName.toLowerCase().endsWith('.pdf');
+  const isPptx = fileName.toLowerCase().endsWith('.pptx');
   const slides = lesson?.slides || [];
+
+  const openLessonFile = async () => {
+    if (!lessonFileUrl) return;
+    try {
+      await Linking.openURL(lessonFileUrl);
+    } catch (error) {
+      console.warn('Unable to open lesson file:', error);
+      setViewerError('This lesson file could not be opened.');
+    }
+  };
 
   // Start from slide 1 whenever a different lesson is opened
   useEffect(() => {
@@ -710,7 +722,7 @@ function LessonViewer({ lesson, onClose }) {
       );
     }
 
-    // Legacy PPTX files or a PDF that failed to preview
+    // PPTX files are kept in their original format instead of being converted.
     return (
       <View style={styles.fsCenter}>
         <View style={styles.fsFileCard}>
@@ -725,10 +737,22 @@ function LessonViewer({ lesson, onClose }) {
           <Text style={styles.fsFileHint}>
             {viewerError
               ? viewerError
-              : isWeb && !isPdf
-                ? 'This PowerPoint lesson must be uploaded again so it can be converted for in-app viewing.'
-                : `This lesson is an uploaded ${isPdf ? 'PDF' : 'PPTX'} file and could not be previewed.`}
+              : isPptx
+                ? 'PowerPoint files stay in their original format. Open the file to view or download it.'
+                : 'This PDF could not be previewed here.'}
           </Text>
+          {lessonFileUrl ? (
+            <TouchableOpacity
+              style={styles.openLessonButton}
+              onPress={openLessonFile}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${fileName || lesson.title}`}
+            >
+              <Ionicons name="open-outline" size={16} color={COLORS.brand} />
+              <Text style={styles.openLessonButtonText}>{isPptx ? 'Open PowerPoint file' : 'Open PDF'}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     );
