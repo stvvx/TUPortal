@@ -19,10 +19,12 @@ import AuthInput from '../../components/AuthInput';
 import DropdownSelect from '../../components/DropdownSelect';
 import {
   apiCreateQuiz,
+  apiDeleteQuiz,
   apiGetQuizSubmissions,
   apiGetStudentQuizzes,
   apiGetTeachingQuizzes,
   apiGetTeachingSubjects,
+  apiUpdateQuiz,
   apiSubmitQuiz
 } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -171,6 +173,7 @@ function TeachingExamsScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState(createQuestions);
+  const [editingQuiz, setEditingQuiz] = useState(null);
   const [formError, setFormError] = useState('');
   const [formMessage, setFormMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -271,6 +274,25 @@ function TeachingExamsScreen() {
     }
     setIsSaving(true);
     try {
+      if (editingQuiz) {
+        const updatedQuiz = await apiUpdateQuiz(token, editingQuiz.id, {
+          title,
+          description,
+          questions
+        });
+        setQuizzes((current) =>
+          current.map((quiz) => quiz.id === updatedQuiz.id ? updatedQuiz : quiz)
+        );
+        setEditingQuiz(null);
+        setTitle('');
+        setDescription('');
+        setQuestions(createQuestions());
+        setSubjectSelections([]);
+        setFormMessage('Quiz updated successfully.');
+        setActiveTab('list');
+        return;
+      }
+
       const createdQuizzes = [];
       for (const subjectId of selectedSubjectIds) {
         const quiz = await apiCreateQuiz(token, {
@@ -297,6 +319,48 @@ function TeachingExamsScreen() {
       setFormError(err.message || 'Failed to create quiz.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const beginEditQuiz = (quiz) => {
+    setFormError('');
+    setFormMessage('');
+    setEditingQuiz(quiz);
+    setSubjectSelections([`${quiz.subjectId}::section`]);
+    setTitle(quiz.title);
+    setDescription(quiz.description || '');
+    setQuestions(quiz.questions.map((question) => ({
+      question: question.question,
+      options: [...question.options],
+      correctOption: question.correctOption
+    })));
+    setActiveTab('create');
+  };
+
+  const deleteQuiz = (quiz) => {
+    const remove = async () => {
+      setFormError('');
+      try {
+        await apiDeleteQuiz(token, quiz.id);
+        setQuizzes((current) => current.filter((item) => item.id !== quiz.id));
+        if (viewingQuiz?.id === quiz.id) setViewingQuiz(null);
+        if (scoresQuiz?.id === quiz.id) {
+          setScoresQuiz(null);
+          setQuizScores([]);
+        }
+        setFormMessage('Quiz deleted successfully.');
+      } catch (err) {
+        setFormError(err.message || 'Failed to delete quiz.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Delete "${quiz.title}"? Student submissions will also be deleted.`)) remove();
+    } else {
+      Alert.alert('Delete quiz', `Delete "${quiz.title}"? Student submissions will also be deleted.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: remove }
+      ]);
     }
   };
 
@@ -361,6 +425,7 @@ function TeachingExamsScreen() {
           onPress={() => {
             setFormError('');
             setFormMessage('');
+            setEditingQuiz(null);
             setTitle('');
             setDescription('');
             setQuestions(createQuestions());
@@ -441,6 +506,22 @@ function TeachingExamsScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
+                <View style={styles.quizCardActions}>
+                  <TouchableOpacity
+                    style={[styles.actionChip, styles.editChip]}
+                    onPress={() => beginEditQuiz(quiz)}
+                  >
+                    <Ionicons name="create-outline" size={16} color={COLORS.brandDeep} />
+                    <Text style={[styles.actionChipText, styles.editChipText]}>Edit quiz</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionChip, styles.deleteChip]}
+                    onPress={() => deleteQuiz(quiz)}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                    <Text style={[styles.actionChipText, styles.deleteChipText]}>Delete quiz</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))
           )}
@@ -468,6 +549,11 @@ function TeachingExamsScreen() {
       {activeTab === 'create' && (
         <View style={styles.createForm}>
           {formError ? <Banner kind="error">{formError}</Banner> : null}
+          {editingQuiz ? (
+            <Banner kind="success">
+              Editing “{editingQuiz.title}”. Update the details below and save your changes.
+            </Banner>
+          ) : null}
 
           {/* basic info card */}
           <View style={styles.cardWrap}>
@@ -477,15 +563,24 @@ function TeachingExamsScreen() {
                 <Ionicons name="settings-outline" size={20} color={COLORS.brand} />
                 <Text style={styles.formSectionTitle}>Quiz details</Text>
               </View>
-              <DropdownSelect
-                label="Assigned subject"
-                icon="library-outline"
-                placeholder="Select one or more subjects"
-                options={subjectOptions}
-                value={subjectSelections}
-                onSelect={setSubjectSelections}
-                multiSelect
-              />
+              {editingQuiz ? (
+                <View style={styles.editSubjectNotice}>
+                  <Ionicons name="lock-closed-outline" size={18} color={COLORS.muted} />
+                  <Text style={styles.editSubjectText}>
+                    Assigned subject: {editingQuiz.subjectCode} - {editingQuiz.sectionName}
+                  </Text>
+                </View>
+              ) : (
+                <DropdownSelect
+                  label="Assigned subject"
+                  icon="library-outline"
+                  placeholder="Select one or more subjects"
+                  options={subjectOptions}
+                  value={subjectSelections}
+                  onSelect={setSubjectSelections}
+                  multiSelect
+                />
+              )}
               <AuthInput
                 label="Quiz title"
                 icon="document-text-outline"
@@ -586,7 +681,7 @@ function TeachingExamsScreen() {
 
           {/* save button */}
           <AuthButton
-            title={isSaving ? 'Creating quiz…' : 'Create Quiz'}
+            title={isSaving ? (editingQuiz ? 'Saving changes…' : 'Creating quiz…') : (editingQuiz ? 'Save Changes' : 'Create Quiz')}
             onPress={saveQuiz}
             loading={isSaving}
           />
@@ -595,6 +690,7 @@ function TeachingExamsScreen() {
             variant="outline"
             onPress={() => {
               setFormError('');
+              setEditingQuiz(null);
               setTitle('');
               setDescription('');
               setQuestions(createQuestions());
@@ -1228,10 +1324,25 @@ const styles = StyleSheet.create({
   actionChipText: { fontSize: 13, fontWeight: '800', color: COLORS.ink },
   scoresChip: { backgroundColor: COLORS.goldSoft },
   scoresChipText: { color: COLORS.brandDeep },
+  editChip: { backgroundColor: COLORS.brandSoft },
+  editChipText: { color: COLORS.brandDeep },
+  deleteChip: { backgroundColor: COLORS.dangerSoft, borderColor: COLORS.dangerLine },
+  deleteChipText: { color: COLORS.danger },
   takeExamBtn: { marginTop: 4 },
 
   /* Create form */
   createForm: { gap: 16 },
+  editSubjectNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.inkSoft,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
+    marginBottom: 16
+  },
+  editSubjectText: { flex: 1, color: COLORS.muted, fontSize: 14, fontWeight: '700' },
   cardWrap: { marginRight: 6, marginBottom: 6 },
   cardShadow: {
     position: 'absolute',

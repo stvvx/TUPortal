@@ -379,6 +379,22 @@ export async function apiCreateQuiz(token, quiz) {
   return result.quiz;
 }
 
+export async function apiUpdateQuiz(token, quizId, quiz) {
+  const result = await request(`/api/teaching/quizzes/${quizId}`, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + token },
+    body: JSON.stringify(quiz)
+  });
+  return result.quiz;
+}
+
+export async function apiDeleteQuiz(token, quizId) {
+  return request(`/api/teaching/quizzes/${quizId}`, {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+}
+
 export async function apiGetQuizSubmissions(token, quizId) {
   const result = await request(`/api/teaching/quizzes/${quizId}/submissions`, {
     headers: { Authorization: 'Bearer ' + token }
