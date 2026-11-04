@@ -6,6 +6,7 @@ import {
   ScrollView,
   Platform,
   TouchableOpacity,
+  Modal,
   Image,
   Alert,
   KeyboardAvoidingView,
@@ -52,6 +53,8 @@ export default function RegisterScreen({ onNavigate }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptedPrivacyPolicy, setAcceptedPrivacyPolicy] = useState(false);
+  const [privacyPolicyVisible, setPrivacyPolicyVisible] = useState(false);
   const [program, setProgram] = useState(null);
   const [programsList, setProgramsList] = useState([]);
   const [loadingPrograms, setLoadingPrograms] = useState(true);
@@ -198,6 +201,9 @@ export default function RegisterScreen({ onNavigate }) {
 
     if (!program || (typeof program === 'string' && !program.trim())) {
       newErrors.program = 'Select your program';
+    }
+    if (!acceptedPrivacyPolicy) {
+      newErrors.privacyPolicy = 'Accept the Privacy Policy to create an account';
     }
 
     setErrors(newErrors);
@@ -432,6 +438,141 @@ export default function RegisterScreen({ onNavigate }) {
               isPassword
               error={errors.confirmPassword}
             />
+
+            <View style={styles.privacyRow}>
+              <TouchableOpacity
+                onPress={() => {
+                  setAcceptedPrivacyPolicy((accepted) => !accepted);
+                  if (errors.privacyPolicy) {
+                    setErrors((prev) => ({ ...prev, privacyPolicy: null }));
+                  }
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: acceptedPrivacyPolicy }}
+                accessibilityLabel="Accept Privacy Policy"
+              >
+                <View style={[
+                  styles.checkbox,
+                  acceptedPrivacyPolicy && styles.checkboxChecked,
+                  errors.privacyPolicy && styles.checkboxError
+                ]}>
+                  {acceptedPrivacyPolicy ? (
+                    <Ionicons name="checkmark" size={16} color={COLORS.surface} />
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.privacyText}>
+                I agree to the{' '}
+                <Text
+                  style={styles.privacyLink}
+                  onPress={() => setPrivacyPolicyVisible(true)}
+                  accessibilityRole="link"
+                >
+                  Privacy Policy
+                </Text>.
+              </Text>
+            </View>
+            {errors.privacyPolicy ? (
+              <Text style={styles.privacyError}>{errors.privacyPolicy}</Text>
+            ) : null}
+
+            <Modal
+              visible={privacyPolicyVisible}
+              animationType="slide"
+              transparent
+              onRequestClose={() => setPrivacyPolicyVisible(false)}
+            >
+              <View style={styles.privacyModalOverlay}>
+                <View style={styles.privacyModalCard}>
+                  <View style={styles.privacyModalHeader}>
+                    <View style={styles.privacyModalTitleWrap}>
+                      <Ionicons name="shield-checkmark" size={24} color={COLORS.brand} />
+                      <Text style={styles.privacyModalTitle}>Privacy Policy</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setPrivacyPolicyVisible(false)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Close Privacy Policy"
+                      style={styles.privacyCloseButton}
+                    >
+                      <Ionicons name="close" size={22} color={COLORS.brandDeep} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView
+                    style={styles.privacyModalScroll}
+                    contentContainerStyle={styles.privacyModalContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <Text style={styles.privacyIntro}>
+                      Your privacy matters to us. This policy explains how the TUP Learning
+                      Management System handles your information.
+                    </Text>
+
+                    <Text style={styles.privacySectionTitle}>Information we collect</Text>
+                    <Text style={styles.privacyBody}>
+                      We collect your name, TUP email address, program, profile picture (if
+                      provided), account credentials, course activity, quiz responses, grades,
+                      and messages needed to provide the system’s learning services.
+                    </Text>
+
+                    <Text style={styles.privacySectionTitle}>How we use your information</Text>
+                    <Text style={styles.privacyBody}>
+                      Your information is used to create and secure your account, verify your
+                      school access, enroll you in subjects, deliver lessons and quizzes,
+                      record grades and progress, enable communication, and improve system
+                      reliability and support.
+                    </Text>
+
+                    <Text style={styles.privacySectionTitle}>How we protect it</Text>
+                    <Text style={styles.privacyBody}>
+                      We limit access to authorized users and staff based on their roles. We
+                      use authentication, access controls, and reasonable technical and
+                      organizational safeguards to protect information from unauthorized
+                      access, alteration, disclosure, or loss.
+                    </Text>
+
+                    <Text style={styles.privacySectionTitle}>Sharing and disclosure</Text>
+                    <Text style={styles.privacyBody}>
+                      We do not sell your personal information. Information is shared only
+                      with authorized faculty, program chairs, administrators, and service
+                      providers when necessary to operate the system, support learning, or
+                      comply with applicable law and university requirements.
+                    </Text>
+
+                    <Text style={styles.privacySectionTitle}>Retention and your rights</Text>
+                    <Text style={styles.privacyBody}>
+                      We retain information only as long as needed for academic records,
+                      account administration, security, and legal or institutional
+                      requirements. You may request access to or correction of your
+                      information and raise privacy concerns with the system or school
+                      administrator.
+                    </Text>
+
+                    <Text style={styles.privacySectionTitle}>Your choice</Text>
+                    <Text style={styles.privacyBody}>
+                      You must read and accept this policy before creating an account.
+                      You may stop registration at any time. Some system features may not be
+                      available without the information needed to provide them.
+                    </Text>
+
+                    <Text style={styles.privacyLastUpdated}>
+                      Please contact your school administrator for privacy questions or
+                      requests regarding your account.
+                    </Text>
+                  </ScrollView>
+
+                  <TouchableOpacity
+                    style={styles.privacyDoneButton}
+                    onPress={() => setPrivacyPolicyVisible(false)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.privacyDoneButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
 
             <AuthButton
               title="Sign up"
@@ -669,6 +810,129 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: 8
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 4
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: COLORS.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surface
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.brand,
+    borderColor: COLORS.brand
+  },
+  checkboxError: {
+    borderColor: COLORS.danger
+  },
+  privacyText: {
+    flex: 1,
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 21
+  },
+  privacyLink: {
+    color: COLORS.brand,
+    fontWeight: '800'
+  },
+  privacyError: {
+    color: COLORS.danger,
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 32
+  },
+  privacyModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(31, 20, 22, 0.55)'
+  },
+  privacyModalCard: {
+    maxHeight: '88%',
+    backgroundColor: COLORS.paper,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 3,
+    borderColor: COLORS.ink,
+    padding: 20
+  },
+  privacyModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.line
+  },
+  privacyModalTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10
+  },
+  privacyModalTitle: {
+    color: COLORS.brand,
+    fontSize: 21,
+    fontWeight: '900'
+  },
+  privacyCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.goldSoft,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  privacyModalScroll: {
+    marginVertical: 6
+  },
+  privacyModalContent: {
+    paddingVertical: 10,
+    paddingBottom: 18
+  },
+  privacyIntro: {
+    color: COLORS.ink,
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 12
+  },
+  privacySectionTitle: {
+    color: COLORS.brandDeep,
+    fontSize: 15,
+    fontWeight: '900',
+    marginTop: 12,
+    marginBottom: 5
+  },
+  privacyBody: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 20
+  },
+  privacyLastUpdated: {
+    color: COLORS.faint,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 18
+  },
+  privacyDoneButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.brand,
+    borderRadius: 12,
+    minHeight: 48,
+    marginTop: 8
+  },
+  privacyDoneButtonText: {
+    color: COLORS.surface,
+    fontSize: 15,
+    fontWeight: '800'
   },
 
   /* Footer */
